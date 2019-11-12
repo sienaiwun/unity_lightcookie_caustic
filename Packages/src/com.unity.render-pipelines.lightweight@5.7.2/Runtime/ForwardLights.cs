@@ -10,12 +10,27 @@ namespace UnityEngine.Rendering.LWRP
         {
             public static int _MainLightPosition;
             public static int _MainLightColor;
-
+            public static int _MainLightLightMat;
+            public static int _MainlightCookie;
+            public static int _MainLightCookieSize;
+            public static int _MainLightCookieBlend;
+            public static int _MainLightCookieFalloff;
+            public static int _MainLightCookieColor;
             public static int _AdditionalLightsCount;
             public static int _AdditionalLightsPosition;
             public static int _AdditionalLightsColor;
             public static int _AdditionalLightsAttenuation;
             public static int _AdditionalLightsSpotDir;
+            
+        }
+
+        class LightCookie
+        {
+            public Texture Tex;
+            public Matrix4x4 LightMat;
+            public float CookieSize;
+            public float Falloff;
+            public Color cookieColor;
         }
         
         const string k_SetupLightConstants = "Setup Light Constants";
@@ -35,11 +50,18 @@ namespace UnityEngine.Rendering.LWRP
         {
             LightConstantBuffer._MainLightPosition = Shader.PropertyToID("_MainLightPosition");
             LightConstantBuffer._MainLightColor = Shader.PropertyToID("_MainLightColor");
+            LightConstantBuffer._MainLightLightMat = Shader.PropertyToID("_MainLightWorldToLight");
+            LightConstantBuffer._MainLightCookieSize = Shader.PropertyToID("_MainLightCookieSize");
+            LightConstantBuffer._MainLightCookieFalloff = Shader.PropertyToID("_MainLightCookieFalloff");
+            LightConstantBuffer._MainLightCookieColor = Shader.PropertyToID("_MainLightCookieColor");
+
+
             LightConstantBuffer._AdditionalLightsCount = Shader.PropertyToID("_AdditionalLightsCount");
             LightConstantBuffer._AdditionalLightsPosition = Shader.PropertyToID("_AdditionalLightsPosition");
             LightConstantBuffer._AdditionalLightsColor = Shader.PropertyToID("_AdditionalLightsColor");
             LightConstantBuffer._AdditionalLightsAttenuation = Shader.PropertyToID("_AdditionalLightsAttenuation");
             LightConstantBuffer._AdditionalLightsSpotDir = Shader.PropertyToID("_AdditionalLightsSpotDir");
+            LightConstantBuffer._MainlightCookie = Shader.PropertyToID("_LightTexture0");
 
             int maxLights = LightweightRenderPipeline.maxVisibleAdditionalLights;
             m_AdditionalLightPositions = new Vector4[maxLights];
@@ -68,13 +90,13 @@ namespace UnityEngine.Rendering.LWRP
             CommandBufferPool.Release(cmd);
         }
 
-        void InitializeLightConstants(NativeArray<VisibleLight> lights, int lightIndex, out Vector4 lightPos, out Vector4 lightColor, out Vector4 lightAttenuation, out Vector4 lightSpotDir)
+        void InitializeLightConstants(NativeArray<VisibleLight> lights, int lightIndex, out Vector4 lightPos, out Vector4 lightColor, out Vector4 lightAttenuation, out Vector4 lightSpotDir, out LightCookie cookie)
         {
             lightPos = k_DefaultLightPosition;
             lightColor = k_DefaultLightColor;
             lightAttenuation = k_DefaultLightAttenuation;
             lightSpotDir = k_DefaultLightSpotDirection;
-
+            cookie = null;
             // When no lights are visible, main light will be set to -1.
             // In this case we initialize it to default values and return
             if (lightIndex < 0)
@@ -152,8 +174,19 @@ namespace UnityEngine.Rendering.LWRP
             }
 
             Light light = lightData.light;
-
-            // TODO: Add support to shadow mask
+            Texture lightTex = light.cookie;
+            LWRPAdditionalLightData data = light.gameObject.GetComponent<LWRPAdditionalLightData>();
+            if (lightTex && data)
+            {
+                cookie = new LightCookie
+                {
+                    Tex = lightTex,
+                    LightMat = light.transform.worldToLocalMatrix,
+                    CookieSize = light.cookieSize,
+                    Falloff = data.lightCookieFalloff,
+                    cookieColor = data.lightCookieColor,
+                };
+            }
             if (light != null && light.bakingOutput.mixedLightingMode == MixedLightingMode.Subtractive && light.bakingOutput.lightmapBakeType == LightmapBakeType.Mixed)
             {
                 if (m_MixedLightingSetup == MixedLightingSetup.None && lightData.light.shadows != LightShadows.None)
@@ -166,11 +199,12 @@ namespace UnityEngine.Rendering.LWRP
         void SetupShaderLightConstants(CommandBuffer cmd, ref LightData lightData)
         {
             // Clear to default all light constant data
+            LightCookie lightcookie;
             for (int i = 0; i < LightweightRenderPipeline.maxVisibleAdditionalLights; ++i)
                 InitializeLightConstants(lightData.visibleLights, -1, out m_AdditionalLightPositions[i],
                     out m_AdditionalLightColors[i],
                     out m_AdditionalLightAttenuations[i],
-                    out m_AdditionalLightSpotDirections[i]);
+                    out m_AdditionalLightSpotDirections[i], out lightcookie);
 
             m_MixedLightingSetup = MixedLightingSetup.None;
 
@@ -182,11 +216,24 @@ namespace UnityEngine.Rendering.LWRP
 
         void SetupMainLightConstants(CommandBuffer cmd, ref LightData lightData)
         {
+            LightCookie lightcookie;
             Vector4 lightPos, lightColor, lightAttenuation, lightSpotDir;
-            InitializeLightConstants(lightData.visibleLights, lightData.mainLightIndex, out lightPos, out lightColor, out lightAttenuation, out lightSpotDir);
-
+            InitializeLightConstants(lightData.visibleLights, lightData.mainLightIndex, out lightPos, out lightColor, out lightAttenuation, out lightSpotDir, out lightcookie);
             cmd.SetGlobalVector(LightConstantBuffer._MainLightPosition, lightPos);
             cmd.SetGlobalVector(LightConstantBuffer._MainLightColor, lightColor);
+            if(lightcookie != null)
+            {
+                cmd.EnableShaderKeyword("_LIGHTCOOKIE");
+                cmd.SetGlobalMatrix(LightConstantBuffer._MainLightLightMat, lightcookie.LightMat);
+                cmd.SetGlobalFloat(LightConstantBuffer._MainLightCookieSize, lightcookie.CookieSize);
+                cmd.SetGlobalTexture(LightConstantBuffer._MainlightCookie, lightcookie.Tex);
+                cmd.SetGlobalFloat(LightConstantBuffer._MainLightCookieFalloff, lightcookie.Falloff);
+                cmd.SetGlobalColor(LightConstantBuffer._MainLightCookieColor, lightcookie.cookieColor);
+            }
+            else
+            {
+                cmd.DisableShaderKeyword("_LIGHTCOOKIE");
+            }
         }
 
         void SetupAdditionalLightConstants(CommandBuffer cmd, ref LightData lightData)
@@ -201,10 +248,12 @@ namespace UnityEngine.Rendering.LWRP
                     VisibleLight light = lights[i];
                     if (light.lightType != LightType.Directional)
                     {
+                        LightCookie lightcookie;
                         InitializeLightConstants(lights, i, out m_AdditionalLightPositions[additionalLightsCount],
                             out m_AdditionalLightColors[additionalLightsCount],
                             out m_AdditionalLightAttenuations[additionalLightsCount],
-                            out m_AdditionalLightSpotDirections[additionalLightsCount]);
+                            out m_AdditionalLightSpotDirections[additionalLightsCount],
+                            out lightcookie);
                         additionalLightsCount++;
                     }
                 }

@@ -146,6 +146,8 @@ namespace UnityEditor.Rendering.LWRP
 
             settings.DrawRenderMode();
             settings.DrawCullingMask();
+            settings.DrawCookie();
+            settings.DrawCookieSize();
 
             EditorGUILayout.Space();
 

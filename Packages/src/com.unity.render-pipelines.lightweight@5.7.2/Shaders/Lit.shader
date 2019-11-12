@@ -101,7 +101,7 @@ Shader "Lightweight Render Pipeline/Lit"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
-            #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile _ _LIGHTCOOKIE
             #pragma multi_compile _ _SHADOWS_SOFT
             #pragma multi_compile _ _MIXED_LIGHTING_SUBTRACTIVE
 
@@ -118,8 +118,8 @@ Shader "Lightweight Render Pipeline/Lit"
             #pragma vertex LitPassVertex
             #pragma fragment LitPassFragment
 
-            #include "LitInput.hlsl"
-            #include "LitForwardPass.hlsl"
+            #include "./LitInput.hlsl"
+            #include "./LitForwardPass.hlsl"
             ENDHLSL
         }
 
@@ -182,8 +182,8 @@ Shader "Lightweight Render Pipeline/Lit"
             // GPU Instancing
             #pragma multi_compile_instancing
 
-            #include "LitInput.hlsl"
-            #include "DepthOnlyPass.hlsl"
+			#include "Packages/com.unity.render-pipelines.lightweight/Shaders/LitInput.hlsl"
+			#include "Packages/com.unity.render-pipelines.lightweight/Shaders/DepthOnlyPass.hlsl"
             ENDHLSL
         }
 

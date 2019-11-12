@@ -24,6 +24,7 @@ struct InputData
     half    fogCoord;
     half3   vertexLighting;
     half3   bakedGI;
+    float2 lightCookieCoord;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -43,14 +44,17 @@ CBUFFER_END
 CBUFFER_START(_LightBuffer)
 float4 _MainLightPosition;
 half4 _MainLightColor;
-
+float4x4 _MainLightWorldToLight;
+float _MainLightCookieSize;
+float _MainLightCookieFalloff;
+half4 _MainLightCookieColor;
 half4 _AdditionalLightsCount;
 float4 _AdditionalLightsPosition[MAX_VISIBLE_LIGHTS];
 half4 _AdditionalLightsColor[MAX_VISIBLE_LIGHTS];
 half4 _AdditionalLightsAttenuation[MAX_VISIBLE_LIGHTS];
 half4 _AdditionalLightsSpotDir[MAX_VISIBLE_LIGHTS];
 CBUFFER_END
-
+TEXTURE2D(_LightTexture0);     SAMPLER(sampler_LightTexture0);
 #define UNITY_MATRIX_M     unity_ObjectToWorld
 #define UNITY_MATRIX_I_M   unity_WorldToObject
 #define UNITY_MATRIX_V     unity_MatrixV

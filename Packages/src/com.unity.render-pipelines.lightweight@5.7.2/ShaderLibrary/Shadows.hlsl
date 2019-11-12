@@ -220,6 +220,15 @@ float4 GetShadowCoord(VertexPositionInputs vertexInput)
 #endif
 }
 
+#ifdef _LIGHTCOOKIE
+float2 GetLightCookie(VertexPositionInputs vertexInput)
+{
+    float4 lightSpaceCood = mul(_MainLightWorldToLight, float4(vertexInput.positionWS.xyz, 1.0));
+	lightSpaceCood.xy /= _MainLightCookieSize;
+    return lightSpaceCood.xy ;
+}
+#endif
+
 float3 ApplyShadowBias(float3 positionWS, float3 normalWS, float3 lightDirection)
 {
     float invNdotL = 1.0 - saturate(dot(lightDirection, normalWS));

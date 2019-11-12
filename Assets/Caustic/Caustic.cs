@@ -11,7 +11,7 @@ public class Caustic : MonoBehaviour
     [Range(2,20)]
     public float FallOff;
 
-    public Color CausticColor;
+    public Color CausticColor = Color.blue;
 
     private Light m_light;
 
@@ -27,7 +27,6 @@ public class Caustic : MonoBehaviour
         {
             m_lightData = gameObject.AddComponent<LWRPAdditionalLightData>();
         }
-        CausticColor = Color.blue;
     }
     
     void Update()

@@ -122,6 +122,36 @@ Light GetMainLight(float4 shadowCoord)
     return light;
 }
 
+
+
+#ifdef _LIGHTCOOKIE
+float4 LightCookieColor(float2 lightCookieCoord)
+{
+	float4 cookie_color = SAMPLE_TEXTURE2D(_LightTexture0, sampler_LightTexture0, lightCookieCoord.xy).x*_MainLightCookieColor;
+    return cookie_color;
+}
+
+Light GetMainLight(float2 lightCookieCoord)
+{
+    Light light = GetMainLight();
+    float4 cookiecolor = LightCookieColor(lightCookieCoord);
+	float fallooff = length(lightCookieCoord) * _MainLightCookieSize / _MainLightCookieFalloff;
+	float blendfactor = smoothstep(1.0f, 0.0f, fallooff);
+    light.color *= lerp(float3(1.0f,1.0f,1.0f),cookiecolor.xyz, blendfactor);
+    return light;
+}
+Light GetMainLight(float4 shadowCoord,float2 lightCookieCoord)
+{
+    Light light = GetMainLight(shadowCoord);
+      float4 cookiecolor = LightCookieColor(lightCookieCoord);
+	  float fallooff = length(lightCookieCoord) * _MainLightCookieSize / _MainLightCookieFalloff;
+	  float blendfactor = smoothstep(1.0f, 0.0f, fallooff);
+	  light.color *= lerp(float3(1.0f, 1.0f, 1.0f), cookiecolor.xyz, blendfactor);
+    return light;
+}
+#endif
+
+
 Light GetAdditionalLight(int i, float3 positionWS)
 {
     int perObjectLightIndex = GetPerObjectLightIndex(i);
@@ -492,7 +522,11 @@ half4 LightweightFragmentPBR(InputData inputData, half3 albedo, half metallic, h
     BRDFData brdfData;
     InitializeBRDFData(albedo, metallic, specular, smoothness, alpha, brdfData);
 
-    Light mainLight = GetMainLight(inputData.shadowCoord);
+#ifdef _LIGHTCOOKIE
+	Light mainLight = GetMainLight(inputData.shadowCoord, inputData.lightCookieCoord);
+#else
+	Light mainLight = GetMainLight(inputData.shadowCoord);
+#endif
     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI, half4(0, 0, 0, 0));
 
     half3 color = GlobalIllumination(brdfData, inputData.bakedGI, occlusion, inputData.normalWS, inputData.viewDirectionWS);
